@@ -11,3 +11,10 @@ config TOUCHSCREEN_CAP1296
           tive touch sensor inputs with programmable sensitivity
           for use in touch sensor applications.
 
+config TOUCHSCREEN_NOTHING
+        tristate "Focaltech Touchscreen"
+        default n
+        help
+          Say Y here if you have Focaltech touch panel.
+          If unsure, say N.
+

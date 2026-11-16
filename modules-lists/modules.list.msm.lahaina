@@ -101,3 +101,6 @@ msm_sharedmem.ko
 nvmem_qfprom.ko
 crypto-qti.ko
 leds_aw210xx.ko
+panel_event_notifier.ko
+fts_tp.ko
+goodix_fp.ko
