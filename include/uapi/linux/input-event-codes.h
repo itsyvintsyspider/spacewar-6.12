@@ -338,6 +338,14 @@
 
 #define KEY_MICMUTE		248	/* Mute / unmute the microphone */
 
+/*
+ * 249/250 are Nothing Phone (1)'s own vendor codes, carried over from the
+ * 5.4-era tree (same numbers) for its FocalTech touch gesture driver --
+ * never upstreamed into mainline input-event-codes.h.
+ */
+#define KEY_FINGER		249	/* fingerprint */
+#define KEY_CLICK		250	/* single tap */
+
 /* Code 255 is reserved for special needs of AT keyboard driver */
 
 #define BTN_MISC		0x100
