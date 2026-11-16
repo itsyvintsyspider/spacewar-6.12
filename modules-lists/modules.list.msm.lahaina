@@ -100,3 +100,4 @@ deferred-free-helper.ko
 msm_sharedmem.ko
 nvmem_qfprom.ko
 crypto-qti.ko
+leds_aw210xx.ko

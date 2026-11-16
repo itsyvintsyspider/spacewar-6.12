@@ -98,6 +98,7 @@ lahaina_perf_config = {
     "CONFIG_IPC_LOGGING": "m",
     "CONFIG_IPC_LOGGING_CDEV": "n",
     "CONFIG_IPC_LOG_MINIDUMP_BUFFERS": "16",
+    "CONFIG_LEDS_AW210XX": "m",
     "CONFIG_LEDS_QCOM_FLASH": "m",
     "CONFIG_LEDS_QCOM_LPG": "m",
     "CONFIG_LEDS_QPNP_VIBRATOR_LDO": "m",

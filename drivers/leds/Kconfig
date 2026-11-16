@@ -81,4 +81,14 @@ config LEDS_ETIRLED_LM3645
 	  To compile this driver as a module, choose M here: the module
 	  will be called leds-etirled-lm3645.
 
+config LEDS_AW210XX
+	tristate "LED Support for AW210XX"
+	depends on LEDS_CLASS && I2C
+	help
+	  this option enables support for the AW210XX RGB LED connected
+	  through I2C. Say Y to enable support for the AW210XX LED.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called leds_aw210xx.
+
 endif # NEW_LEDS
