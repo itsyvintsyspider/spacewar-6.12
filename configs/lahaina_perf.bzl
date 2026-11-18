@@ -49,12 +49,22 @@ lahaina_perf_config = {
     "CONFIG_DRM_AUX_BRIDGE": "m",
     "CONFIG_DRM_DISPLAY_DP_HELPER": "y",
     "CONFIG_DRM_DISPLAY_HELPER": "m",
+    # Bring-up diagnostics only: a real mainline port for this same chip
+    # family (sc7280-mainline, used by postmarketOS's nothing-spacewar
+    # device package) confirms CONFIG_FB/CONFIG_FRAMEBUFFER_CONSOLE work
+    # on this hardware. We have no UART and every module-load-order probe
+    # this project has tried hangs before producing any observable signal
+    # -- a boot-time text console rendered straight onto the display via
+    # DRM's own fbdev emulation needs neither USB nor storage to work, so
+    # it can show kernel printks even if everything past this point hangs.
+    "CONFIG_DRM_FBDEV_EMULATION": "y",
     "CONFIG_DRM_LONTIUM_LT9611UXC": "m",
     "CONFIG_DRM_MSM_HELPER": "m",
     "CONFIG_EDAC_KRYO_ARM64": "m",
     "CONFIG_EDAC_KRYO_ARM64_PANIC_ON_UE": "y",
     "CONFIG_EDAC_QCOM": "m",
     "CONFIG_EXTCON_USB_GPIO": "m",
+    "CONFIG_FRAMEBUFFER_CONSOLE": "y",
     "CONFIG_FTRACE_STARTUP_TEST": "n",
     "CONFIG_GOODIX_FINGERPRINT": "m",
     "CONFIG_GH_ARM64_DRV": "m",
@@ -373,6 +383,7 @@ lahaina_perf_config = {
     "CONFIG_UAPI_HEADER_TEST": "y",
     "CONFIG_UCSI_QTI_GLINK": "m",
     "CONFIG_UIO_MSM_SHAREDMEM": "m",
+    "CONFIG_USB_CONFIGFS_ACM": "y",
     "CONFIG_USB_CONFIGFS_F_CCID": "m",
     "CONFIG_USB_CONFIGFS_F_CDEV": "m",
     "CONFIG_USB_CONFIGFS_F_GSI": "m",
@@ -393,6 +404,7 @@ lahaina_perf_config = {
     "CONFIG_VIDEO_QCOM_VENUS": "n",
     "CONFIG_VIRT_DRIVERS": "y",
     "CONFIG_VIRT_WIFI": "n",
+    "CONFIG_VT": "y",
     "CONFIG_VT6655": "n",
     "CONFIG_VT6656": "n",
     "CONFIG_WFX": "n",

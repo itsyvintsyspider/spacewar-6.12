@@ -37,8 +37,13 @@ def define_lahaina():
             )
 
         else:
-            board_kernel_cmdline_extras += ["nosoftlockup console=ttynull qcom_geni_serial.con_enabled=0"]
-            kernel_vendor_cmdline_extras += ["nosoftlockup console=ttynull qcom_geni_serial.con_enabled=0"]
+            # Bring-up diagnostics only: route the console to the VT/fbcon
+            # text console on the phone's own screen instead of discarding
+            # it to ttynull -- we have no accessible UART, so this is the
+            # only way to see boot messages at all. Revert to ttynull once
+            # bring-up is done; a real release build should keep output off.
+            board_kernel_cmdline_extras += ["nosoftlockup console=tty0 qcom_geni_serial.con_enabled=0"]
+            kernel_vendor_cmdline_extras += ["nosoftlockup console=tty0 qcom_geni_serial.con_enabled=0"]
             board_bootconfig_extras += ["androidboot.serialconsole=0"]
 
             perf_build_img_opts = boot_image_opts(
