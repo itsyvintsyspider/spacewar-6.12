@@ -72,7 +72,7 @@ static irqreturn_t qcom_cpucp_rx_interrupt(int irq, void *p)
 			/* Make sure reg write is complete before proceeding */
 			mb();
 			spin_lock_irqsave(&cpucp_ipc->chans_locks[i], flags);
-			if (!IS_ERR(cpucp_ipc->chans[i].con_priv))
+			if (!IS_ERR(cpucp_ipc->chans[i].con_priv) && cpucp_ipc->chans[i].cl)
 				mbox_chan_received_data(&cpucp_ipc->chans[i], NULL);
 			spin_unlock_irqrestore(&cpucp_ipc->chans_locks[i], flags);
 		}
@@ -103,7 +103,7 @@ static irqreturn_t qcom_cpucp_v2_mbox_rx_interrupt(int irq, void *p)
 			/* Make sure reg write is complete before proceeding */
 			mb();
 			spin_lock_irqsave(&cpucp_ipc->chans_locks[i], flags);
-			if (!IS_ERR(cpucp_ipc->chans[i].con_priv))
+			if (!IS_ERR(cpucp_ipc->chans[i].con_priv) && cpucp_ipc->chans[i].cl)
 				mbox_chan_received_data(&cpucp_ipc->chans[i], (void *)&data);
 			spin_unlock_irqrestore(&cpucp_ipc->chans_locks[i], flags);
 			ret = IRQ_HANDLED;
@@ -280,6 +280,22 @@ static int qcom_cpucp_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	for (i = 0; i < cpucp_ipc->num_chans; i++)
 		spin_lock_init(&cpucp_ipc->chans_locks[i]);
+
+	/*
+	 * CPUCP firmware can latch a pending RX status before Linux ever
+	 * gets here (it's been running since well before HLOS boot), so the
+	 * very first interrupt can arrive as soon as devm_request_irq()
+	 * below unmasks it -- before qcom_cpucp_ipc_setup_mbox() has had a
+	 * chance to mark these channels unbound. devm_kzalloc() above leaves
+	 * con_priv as NULL (not an error pointer), so the IRQ handlers'
+	 * !IS_ERR(con_priv) check would wrongly pass and call
+	 * mbox_chan_received_data() on a channel with no client (chan->cl
+	 * also still NULL), which dereferences chan->cl->rx_callback and
+	 * crashes. Close that window by marking every channel unbound here,
+	 * before the IRQ is ever enabled, not just in ipc_setup_mbox().
+	 */
+	for (i = 0; i < cpucp_ipc->num_chans; i++)
+		cpucp_ipc->chans[i].con_priv = ERR_PTR(-EINVAL);
 
 	cpucp_ipc->irq = platform_get_irq(pdev, 0);
 	if (cpucp_ipc->irq < 0) {
