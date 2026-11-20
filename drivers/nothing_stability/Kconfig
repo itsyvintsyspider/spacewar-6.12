@@ -1,0 +1,10 @@
+config NOTHING_WRITRBACK_KMSG
+	tristate "Nothing boot/panic kmsg writeback to logdump"
+	default n
+	help
+	  Writes a rolling copy of the kernel log to the logdump partition
+	  throughout boot (ported from Nothing's stock 5.4 nothing_stability
+	  driver). Doesn't log any customer info. When the device is stuck,
+	  this can help debug it: the partition can be read back with
+	  dd on a later, working boot (adb root required), independent of
+	  USB/display state during the stuck boot itself.
