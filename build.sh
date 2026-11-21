@@ -21,7 +21,7 @@ SOC="$KP/soc-repo"
 MPO="$OUT/modules_prepare_out"
 EXTRA="$OUT/soc-repo-combined.symvers"
 
-export PATH="$KP/prebuilts/clang/host/linux-x86/clang-r547379/bin:$PATH"
+export PATH="$KP/prebuilts/clang/host/linux-x86/clang-r563880c/bin:$PATH"
 
 BAZEL_EXECROOT=$(find "$KP/bazel-cache" -maxdepth 3 -type d -path "*/bazel-cache/*/execroot" | head -1)/_main/bazel-out/k8-fastbuild/bin
 
