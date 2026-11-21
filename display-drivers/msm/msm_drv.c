@@ -519,7 +519,7 @@ static int msm_drm_uninit(struct device *dev)
 		priv->registered = false;
 	}
 
-#if IS_ENABLED(CONFIG_DRM_FBDEV_EMULATION)
+#if 0 /* msm_fbdev.c is not part of this release */
 	if (fbdev && priv->fbdev)
 		msm_fbdev_free(ddev);
 #endif /* CONFIG_DRM_FBDEV_EMULATION */
@@ -1105,7 +1105,7 @@ static int msm_drm_component_init(struct device *dev)
 		goto fail;
 	priv->registered = true;
 
-#if IS_ENABLED(CONFIG_DRM_FBDEV_EMULATION)
+#if 0 /* msm_fbdev.c is not part of this release */
 	if (fbdev)
 		priv->fbdev = msm_fbdev_init(ddev);
 #endif /* CONFIG_DRM_FBDEV_EMULATION */
@@ -1304,17 +1304,13 @@ static void msm_lastclose(struct drm_device *dev)
 
 	msm_atomic_flush_display_threads(priv);
 
-	if (priv->fbdev) {
-		rc = drm_fb_helper_restore_fbdev_mode_unlocked(priv->fbdev);
-		if (rc)
-			DRM_ERROR("restore FBDEV mode failed: %d\n", rc);
 #if (KERNEL_VERSION(6, 13, 0) > LINUX_VERSION_CODE)
-	} else if (kms && kms->client.dev) {
+	if (kms && kms->client.dev) {
 		rc = drm_client_modeset_commit_locked(&kms->client);
 		if (rc)
 			DRM_ERROR("client modeset commit failed: %d\n", rc);
-#endif /* (KERNEL_VERSION(6, 13, 0) > LINUX_VERSION_CODE) */
 	}
+#endif /* (KERNEL_VERSION(6, 13, 0) > LINUX_VERSION_CODE) */
 
 	/* wait again, before kms driver does it's lastclose commit */
 	msm_wait_event_timeout(priv->pending_crtcs_event, !priv->pending_crtcs,
