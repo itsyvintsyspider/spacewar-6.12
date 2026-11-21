@@ -81,6 +81,28 @@
 };
 
 /*
+ * yupik-abra-common-overlay.dtsi (included below) already grows
+ * ramoops_mem's size to the real 5.4-era total (0x400000) and gives
+ * qcom_ramoops a working console-size, but it never fixes the address:
+ * it only changes "size", leaving "alloc-ranges" (dynamic placement
+ * over the whole DDR range) in effect. Nothing's real yupik.dtsi
+ * reserves this at a fixed physical address instead (confirmed against
+ * the shipped android_kernel_nothing_sm7325 tree: reg = <0x0 0xa9000000
+ * ...>) -- same chip-generic-vs-board-specific gap redwood's README
+ * documents needing a fixed region for (0xb0000000, there). Left
+ * unfixed, our carve-out could land somewhere this board's firmware
+ * doesn't actually expect, and even if it doesn't, anything written
+ * there is somewhere the stock OS's own pstore driver (fixed at
+ * 0xa9000000) would never find on a later boot. Finish that fix here,
+ * at the same real total size abra-common already established, rather
+ * than adding a second, conflicting override of the same label.
+ */
+&ramoops_mem {
+	/delete-property/ alloc-ranges;
+	reg = <0x0 0xa9000000 0x0 0x400000>;
+};
+
+/*
  * Nothing Glyph interface (AW210xx LED driver), ported from the 5.4-era
  * yupik-qrd.dtsi. qupv3_se1_i2c and the gpio18 enable line are the same
  * controller/pin on this base (confirmed against yupik-qupv3.dtsi: both
@@ -181,6 +203,17 @@
  * overlay fragment only adds/overrides what's missing; everything else
  * (bus, reg, interrupts, reset/irq gpio, vdd-supply, trusted-touch-*)
  * already comes from the stock node.
+ *
+ * The 5.4-era tree also carries a goodix-berlin@0 node at this exact
+ * same bus/reg, gated by a sibling "qcom,spi-touch-active" string on
+ * qupv3_se13_spi itself. On the shipped Spacewar tree that string is
+ * "focaltech,fts_ts" -- Goodix Berlin is present only as an alternate
+ * touch-IC sourcing option for this same physical touch digitizer, never
+ * the active device, so it's deliberately not ported here. (Not a
+ * second touch position, and not tied to a different panel -- both
+ * candidate nodes carry the identical panel phandle below.) Stock
+ * already sets qcom,spi-touch-active to "focaltech,fts_ts" on this bus,
+ * so no override is needed here either.
  */
 &qupv3_se13_spi {
 	focaltech@0 {
@@ -193,6 +226,24 @@
 		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
 		pinctrl-2 = <&ts_release>;
 		panel = <&dsi_rm692e5_visionox_amoled_120hz_cmd>;
+	};
+};
+
+/*
+ * NFC (qcom,sn-nci / nfc_i2c_drv.c), ported from the 5.4-era
+ * yupik-qrd.dtsi. Stock 6.12 yupik-qrd.dtsi already carries an identical
+ * nq@28 node on qupv3_se9_i2c (same reg/irq/supply/gpio wiring,
+ * confirmed line-for-line against the 5.4 tree) -- it's missing
+ * "compatible" and never wires pinctrl-0/1 to real phandles, even though
+ * yupik-pinctrl.dtsi already defines nfc_int_active/nfc_enable_active at
+ * the same gpio38/39/40/41 pins the stock node itself references. Same
+ * shape as the touch fragment above: only what's missing is added.
+ */
+&qupv3_se9_i2c {
+	nq@28 {
+		compatible = "qcom,sn-nci";
+		pinctrl-0 = <&nfc_int_active &nfc_enable_active>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend>;
 	};
 };
 
