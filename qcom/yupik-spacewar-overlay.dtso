@@ -63,6 +63,16 @@
 #include "display/yupik-spacewar-sde.dtsi"
 #include "display/yupik-spacewar-sde-display.dtsi"
 
+/*
+ * Camera: same "Qualcomm's 6.12 release ships none of this for yupik"
+ * gap as display above. Platform core (CCI/CSIPHY/Titan/SMMU) from
+ * redwood's own yupik port, confirmed chip-generic; Spacewar's real
+ * sensors (FocalTech-class rear wide/ultrawide + front, from the 5.4
+ * tree's abra-camera-sensor.dtsi) in the second file.
+ */
+#include "camera/yupik-spacewar-camera.dtsi"
+#include "camera/yupik-spacewar-camera-sensor.dtsi"
+
 / {
 	model = "Qualcomm Technologies, Inc. Yupik QRD";
 	compatible = "qcom,yupik-idp", "qcom,yupik", "qcom,qrd";
