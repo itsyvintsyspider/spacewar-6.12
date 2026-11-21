@@ -249,4 +249,34 @@ struct mem_buf_get_memparcel_hdl_ioctl_arg {
 #define MEM_BUF_IOC_GET_MEMPARCEL_HDL	_IOWR(MEM_BUF_IOC_MAGIC, 5,\
 					      struct mem_buf_get_memparcel_hdl_ioctl_arg)
 
+/* Legacy export request; type-only, 6.12 driver has no handler for it. */
+struct mem_buf_export_ioctl_arg {
+	__u32 dma_buf_fd;
+	__u32 nr_acl_entries;
+	__u64 acl_list;
+	__u32 export_fd;
+	__u32 memparcel_hdl;
+	__u64 reserved0;
+	__u64 reserved1;
+	__u64 reserved2;
+};
+
+#define MEM_BUF_IOC_EXPORT		_IOWR(MEM_BUF_IOC_MAGIC, 1,\
+					      struct mem_buf_export_ioctl_arg)
+
+/* Legacy import request, same as export above. */
+struct mem_buf_import_ioctl_arg {
+	__u32 memparcel_hdl;
+	__u32 nr_acl_entries;
+	__u64 acl_list;
+	__u32 dma_buf_import_fd;
+	__u32 reserved0;
+	__u64 reserved1;
+	__u64 reserved2;
+	__u64 reserved3;
+};
+
+#define MEM_BUF_IOC_IMPORT		_IOWR(MEM_BUF_IOC_MAGIC, 7,\
+					      struct mem_buf_import_ioctl_arg)
+
 #endif /* _UAPI_LINUX_MEM_BUF_H */
