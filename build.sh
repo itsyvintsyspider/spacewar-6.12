@@ -209,7 +209,7 @@ python3 "$(dirname "$0")/bringup/audiokbuild.py" "$VENDOR/audio-kernel"
 make -C "$KP/common" O="$MPO" M="$VENDOR/audio-kernel" \
 	ARCH=arm64 LLVM=1 LLVM_IAS=1 CC=clang \
 	KBUILD_EXTRA_SYMBOLS="$EXTRA $EXTDISP/Module.symvers" \
-	KCFLAGS="-I$SOC/include -I$SOC/include/uapi -I$EXTDISP/include" \
+	KCFLAGS="-I$SOC/include -I$SOC/include/uapi -I$EXTDISP/include -Wno-array-bounds" \
 	-j"$(nproc)" modules
 
 echo "Built: $(find "$VENDOR/audio-kernel" -name '*.ko' | wc -l) audio-kernel modules"
