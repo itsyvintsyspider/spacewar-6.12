@@ -568,6 +568,13 @@ _platform_map = {
             {"name": "yupik-rumi-overlay.dtbo"},
             {"name": "yupik-idp-overlay.dtbo"},
             {"name": "yupik-qrd-overlay.dtbo"},
+            # Nothing Phone (1) "Spacewar" -- qcom/Makefile's own
+            # SPACEWAR_BOARDS wiring lists it too, but that Makefile isn't
+            # what this Bazel/Kleaf build actually reads; this dtbo_list is
+            # the real source of truth, confirmed by its absence from every
+            # built dtbo.img despite the Makefile entry existing since
+            # Stage 3.
+            {"name": "yupik-spacewar-overlay.dtbo"},
             {"name": "yupik-idp-pm7250b-overlay.dtbo"},
             {"name": "yupik-idps-amoled-overlay.dtbo"},
             {"name": "yupikp-idp-overlay.dtbo"},
