@@ -1,0 +1,131 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Spacewar's display glue: wires the chip-generic SDE/DSI core
+ * (yupik-spacewar-sde.dtsi) to Nothing's actual panel, ported from the
+ * 5.4-era yupik-sde-display-common.dtsi + yupik-sde-display-qrd.dtsi.
+ *
+ * sde_wb and the qcom,dsi-display-primary wrapper's shape are chip-generic
+ * (same pattern as redwood's own redwood-sde-display.dtsi); the panel
+ * selection, supply rails and tuning below are Spacewar's own, confirmed
+ * against this project's 5.4 tree rather than carried over from redwood's
+ * board (which uses different M20 panels).
+ */
+
+#include "dsi-panel-rm692e5-visionox-fhd-plus-120hz-cmd.dtsi"
+
+&mdss_mdp {
+	connectors = <&smmu_sde_unsec &smmu_sde_sec &sde_wb &sde_dsi &sde_rscc>;
+};
+
+&soc {
+	sde_wb: qcom,wb-display@0 {
+		compatible = "qcom,wb-display";
+		cell-index = <0>;
+		label = "wb_display";
+	};
+
+	/* vddio/vdd only -- confirmed against the 5.4 tree's own
+	 * dsi_panel_pwr_supply_rm692e5; this panel has no lab/ibb rails. */
+	dsi_panel_pwr_supply_rm692e5: dsi_panel_pwr_supply_rm692e5 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <60700>;
+			qcom,supply-disable-load = <80>;
+			qcom,supply-ulp-load = <30000>;
+			qcom,supply-post-on-sleep = <2>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "vdd";
+			qcom,supply-min-voltage = <3000000>;
+			qcom,supply-max-voltage = <3000000>;
+			qcom,supply-enable-load = <30000>;
+			qcom,supply-disable-load = <0>;
+			qcom,supply-post-on-sleep = <0>;
+			qcom,supply-post-off-sleep = <2>;
+		};
+	};
+
+	sde_dsi: qcom,dsi-display-primary {
+		compatible = "qcom,dsi-display";
+		label = "primary";
+
+		qcom,dsi-ctrl = <&mdss_dsi0>;
+		qcom,dsi-phy = <&mdss_dsi_phy0>;
+		qcom,mdp = <&mdss_mdp>;
+
+		/*
+		 * The 5nm PLL in the 6.12 display driver registers just the byte
+		 * and DSI clocks, as cells 0 and 1 of the PHY -- the 5.4 tree's
+		 * "mux_byte_clk0"/"mux_pixel_clk0" naming doesn't exist here.
+		 */
+		clocks = <&mdss_dsi_phy0 0>,
+			<&mdss_dsi_phy0 1>,
+			/*
+			 * Not used by dsi_display; it keeps the display clock
+			 * controller from syncing state before the splash is
+			 * handed over.
+			 */
+			<&dispcc DISP_CC_MDSS_MDP_CLK>;
+		clock-names = "pll_byte_clk0", "pll_dsi_clk0", "mdp_core_clk";
+
+		pinctrl-names = "panel_active", "panel_suspend";
+		pinctrl-0 = <&sde_dsi_active &sde_te_active>;
+		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
+		qcom,platform-te-gpio = <&tlmm 80 0>;
+		qcom,panel-te-source = <0>;
+
+		/* Confirmed against the 5.4 tree's own &sde_dsi override: same
+		 * L12C/L13C QRD reference rails, no lab/ibb for this AMOLED panel. */
+		vddio-supply = <&L12C>;
+		vdd-supply = <&L13C>;
+
+		qcom,dsi-default-panel = <&dsi_rm692e5_visionox_amoled_120hz_cmd>;
+	};
+};
+
+&dsi_rm692e5_visionox_amoled_120hz_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_rm692e5>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-bl-hbm-level = <4094>;
+	qcom,mdss-brightness-max-level = <4095>;
+	qcom,mdss-dsi-bl-inverted-dbv;
+	qcom,platform-reset-gpio = <&tlmm 44 0>;
+	qcom,platform-te-gpio = <&tlmm 80 0>;
+
+	qcom,dsi-select-clocks = "pll_byte_clk0", "pll_dsi_clk0";
+	qcom,dynamic-mode-switch-enabled;
+	qcom,dynamic-mode-switch-type = "dynamic-resolution-switch-immediate";
+	qcom,dsi-dyn-clk-enable;
+	qcom,dsi-dyn-clk-list = <897000000>;
+
+	qcom,mdss-dsi-display-timings {
+		timing@0 {
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 07 07 17 16 07
+					07 08 02 04 00 18 0c];
+			qcom,display-topology = <1 1 1>;
+			qcom,default-topology-index = <0>;
+		};
+		timing@1 {
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 07 07 17 16 07
+					07 08 02 04 00 18 0c];
+			qcom,display-topology = <1 1 1>;
+			qcom,default-topology-index = <0>;
+		};
+		timing@2 {
+			qcom,mdss-dsi-panel-phy-timings = [00 1c 07 07 17 16 07
+					07 08 02 04 00 18 0c];
+			qcom,display-topology = <1 1 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};

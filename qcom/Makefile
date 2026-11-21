@@ -384,6 +384,15 @@ lahaina-dtb-$(CONFIG_ARCH_YUPIK) += \
 	$(call add-overlays, $(YUPIK_BOARDS),$(YUPIK_APQ_BASE_DTB))
 lahaina-overlays-dtb-$(CONFIG_ARCH_YUPIK) += $(NOAPQ_YUPIK_BOARDS) $(YUPIK_BASE_DTB) $(YUPIK_APQ_BASE_DTB) $(YUPIK_BOARDS)
 
+# Nothing Phone (1) "Spacewar" -- its own overlay, paired only with yupik.dtb.
+# Deliberately NOT folded into NOAPQ_YUPIK_BOARDS/YUPIK_BASE_DTB above: that
+# cross-product also combines against yupik-iot/katmai, which don't carry
+# our board-specific ramoops/Glyph nodes.
+SPACEWAR_BOARDS += yupik-spacewar-overlay.dtbo
+SPACEWAR_BASE_DTB += yupik.dtb
+lahaina-dtb-$(CONFIG_ARCH_YUPIK) += $(call add-overlays, $(SPACEWAR_BOARDS),$(SPACEWAR_BASE_DTB))
+lahaina-overlays-dtb-$(CONFIG_ARCH_YUPIK) += $(SPACEWAR_BOARDS) $(SPACEWAR_BASE_DTB)
+
 LAHAINA_BASE_DTB += lahaina.dtb lahaina-v2.dtb lahaina-v2.1.dtb
 LAHAINA_APQ_BASE_DTB += lahainap.dtb lahainap-v2.dtb lahainap-v2.1.dtb
 

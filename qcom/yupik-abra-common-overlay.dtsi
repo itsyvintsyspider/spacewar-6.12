@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *
+ * Nothing board overlay, ported from the 5.4-era yupik-abra-common-overlay.dtsi.
+ * The ramoops override is adapted for the 6.12 binding: the 5.4 tree set
+ * "reg"/"console-size"/"pmsg-size" directly on a "ramoops"-compatible node
+ * labeled &qcom; 6.12 splits that into a separate ramoops_mem reserved-memory
+ * region, referenced via "memory-region" from a plain (unlabeled) node at
+ * /soc/qcom_ramoops -- despite the name, it has no "label:" prefix in
+ * yupik.dtsi, so it's addressed here by absolute path, not &qcom_ramoops.
+ */
+
+/* Reserved for bootloader log memory according to xbl uefiplat.cfg */
+&soc {
+	bootloader_log {
+		compatible = "nothing,bootloader_log";
+		memory-region = <&reserved_xbl_uefi>;
+		log,offset_size = <0x4000 0x100000>;
+	};
+};
+
+/* Grow ramoops to fit both console and pmsg (5.4 era: 0x400000 total) */
+&ramoops_mem {
+	size = <0x0 0x400000>;
+};
+
+&{/soc/qcom_ramoops} {
+	console-size = <0x200000>;
+	pmsg-size = <0x200000>;
+};

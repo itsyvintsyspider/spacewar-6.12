@@ -1,0 +1,117 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Nothing Phone (1) "Spacewar" overlay, ported from the 5.4-era NOS-5.0
+ * tree onto Qualcomm's stock 6.12 yupik-qrd base.
+ *
+ * This is deliberately its OWN overlay, not an edit to Qualcomm's shared
+ * yupik-qrd-overlay.dtso: that file is cross-combined by
+ * qcom/Makefile's NOAPQ_YUPIK_BOARDS x YUPIK_BASE_DTB product against
+ * yupik-iot/katmai/etc, none of which carry our board-specific nodes.
+ * Wired in qcom/Makefile as its own narrow combination, paired only with
+ * yupik.dtb -- same pattern as redwood's own standalone redwood-overlay.dtso.
+ *
+ * Board identity (model/compatible/qcom,msm-id/qcom,board-id) is left
+ * identical to stock yupik-qrd-overlay.dtso: Nothing's real 5.4 firmware
+ * never renamed these either -- confirmed against the shipped
+ * android_kernel_nothing_sm7325 tree's own yupik-qrd.dts.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * yupik-gpu.dtsi/yupik-gpu-pwrlevels.dtsi (below) target &msm_gpu, a label
+ * only yupik.dtsi defines -- not pulled in automatically here since this
+ * overlay is its own compilation unit (macros from yupik.dtsi's own
+ * #includes don't carry over at FDT-apply time), so these five headers
+ * are repeated from graphics-devicetree's own yupik-gpu.dts wrapper.
+ */
+#include <dt-bindings/clock/qcom,aop-qmp.h>
+#include <dt-bindings/clock/qcom,gcc-sc7280.h>
+#include <dt-bindings/clock/qcom,gpucc-sc7280.h>
+#include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/interconnect/qcom,yupik.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
+
+/* Display (SDE/DSI) headers -- same "own compilation unit" reason as above. */
+#include <dt-bindings/clock/mdss-5nm-pll-clk.h>
+#include <dt-bindings/clock/qcom,dispcc-sc7280.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interconnect/qcom,icc.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+#include "yupik-qrd.dtsi"
+#include "yupik-abra-common-overlay.dtsi"
+
+/*
+ * GPU devicetree, from graphics-devicetree (gfx-devicetree-oss.lnx.16.0.r8-rel)
+ * as-is -- Qualcomm's own release already ships yupik-gpu.dtsi/pwrlevels,
+ * unlike display (see below), so no 5.4 porting needed here.
+ */
+#include "yupik-gpu.dtsi"
+#include "yupik-gpu-pwrlevels.dtsi"
+
+/*
+ * Display: genuinely ported from the 5.4-era tree, not a stock-as-is
+ * include like GPU above -- Qualcomm's 6.12 yupik release ships zero
+ * display nodes at all. Core SDE/DSI binding + pinctrl are chip-generic
+ * (reused from redwood's own port); the panel and its wiring below are
+ * Spacewar's actual Visionox RM692E5, carried over from the 5.4 tree.
+ */
+#include "display/yupik-spacewar-sde-pinctrl.dtsi"
+#include "display/yupik-spacewar-sde.dtsi"
+#include "display/yupik-spacewar-sde-display.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Yupik QRD";
+	compatible = "qcom,yupik-idp", "qcom,yupik", "qcom,qrd";
+	qcom,msm-id = <475 0x10000>, <515 0x10000>;
+	qcom,board-id = <0x1000B 0>;
+};
+
+/*
+ * Nothing Glyph interface (AW210xx LED driver), ported from the 5.4-era
+ * yupik-qrd.dtsi. qupv3_se1_i2c and the gpio18 enable line are the same
+ * controller/pin on this base (confirmed against yupik-qupv3.dtsi: both
+ * 5.4 and 6.12 define qupv3_se1_i2c as i2c@984000) -- not board-renumbered,
+ * so this is ported as-is, not guessed.
+ */
+&tlmm {
+	aw210xx_led_pins {
+		led_gpio_en: led_gpio_en {
+			mux {
+				pins = "gpio18";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio18";
+				drive-strength = <2>;
+				output-high;
+				bias-pull-up;
+			};
+		};
+	};
+};
+
+&qupv3_se1_i2c {
+	status = "ok";
+	aw210xx_led@20 {
+		compatible = "awinic,aw210xx_led";
+		reg = <0x20>;
+		enable-gpio = <&tlmm 18 0x00>;
+		global_current = <0x20>;
+		osc_clk = <1>;
+		br_res = <3>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&led_gpio_en>;
+		status = "ok";
+		aw210xx,led {
+			aw210xx,name = "aw210xx_led";
+			aw210xx,imax = <1>;
+			aw210xx,brightness = <4095>;
+			aw210xx,max_brightness = <4095>;
+		};
+	};
+};
