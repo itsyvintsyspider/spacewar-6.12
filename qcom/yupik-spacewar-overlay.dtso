@@ -93,6 +93,123 @@
 			};
 		};
 	};
+
+	/*
+	 * FocalTech touch reset/irq pinctrl states, ported as-is from the
+	 * 5.4-era yupik-pinctrl.dtsi -- same gpio105 (reset)/gpio81 (irq)
+	 * pins on this base (confirmed against yupik-qupv3.dtsi: both 5.4
+	 * and 6.12 wire qupv3_se13_spi to the same SE/pins).
+	 */
+	pmx_ts_active {
+		ts_active: ts_active {
+			mux {
+				pins = "gpio105", "gpio81";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio105", "gpio81";
+				drive-strength = <8>;
+				bias-pull-up;
+			};
+		};
+	};
+
+	pmx_ts_reset_suspend {
+		ts_reset_suspend: ts_reset_suspend {
+			mux {
+				pins = "gpio105";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio105";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+	};
+
+	pmx_ts_int_suspend {
+		ts_int_suspend: ts_int_suspend {
+			mux {
+				pins = "gpio81";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio81";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+	};
+
+	pmx_ts_release {
+		ts_release: ts_release {
+			mux {
+				pins = "gpio105", "gpio81";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio105", "gpio81";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+	};
+};
+
+/*
+ * FocalTech touch (focaltech,fts_ts), ported from the 5.4-era
+ * yupik-qrd.dtsi. Qualcomm's own stock 6.12 yupik-qrd.dtsi already
+ * carries a focaltech@0 node under qupv3_se13_spi (same SPI bus/IRQ/
+ * reset-gpio, confirmed identical) -- it's missing "compatible" and the
+ * pinctrl/iovdd/panel wiring, and its touch-coords/max-touch-number are
+ * generic-QRD values, not Spacewar's real Visionox panel numbers. This
+ * overlay fragment only adds/overrides what's missing; everything else
+ * (bus, reg, interrupts, reset/irq gpio, vdd-supply, trusted-touch-*)
+ * already comes from the stock node.
+ */
+&qupv3_se13_spi {
+	focaltech@0 {
+		compatible = "focaltech,fts_ts";
+		focaltech,display-coords = <0 0 1080 2400>;
+		focaltech,max-touch-number = <10>;
+		iovdd-supply = <&L8C>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend", "pmx_ts_release";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+		panel = <&dsi_rm692e5_visionox_amoled_120hz_cmd>;
+	};
+};
+
+/*
+ * Goodix fingerprint/UDFPS (gf_spi, goodix,fingerprint) -- a separate
+ * chip from the touch controller above, on its own SPI bus
+ * (qupv3_se14_spi). Ported from the 5.4-era yupik-qrd.dtsi; unlike
+ * touch, Qualcomm's stock 6.12 yupik-qrd.dtsi has no fingerprint node
+ * at all here (the qupv3_se14_spi controller exists, disabled, with no
+ * child device), so this is added fresh rather than overridden. The
+ * driver resolves its own IRQ from fp-gpio-irq at runtime
+ * (gpio_to_irq()), so no devicetree "interrupts" property is needed,
+ * matching the 5.4 node.
+ */
+&qupv3_se14_spi {
+	status = "ok";
+	goodix_fp@0 {
+		compatible = "goodix,fingerprint";
+		reg = <0>;
+		spi-max-frequency = <6000000>;
+		interrupt-parent = <&tlmm>;
+		fp-gpio-power = <&tlmm 2 0x00>;
+		fp-gpio-irq = <&tlmm 34 0x00>;
+		fp-gpio-reset = <&tlmm 61 0x00>;
+		panel = <&dsi_rm692e5_visionox_amoled_120hz_cmd>;
+		status = "okay";
+	};
 };
 
 &qupv3_se1_i2c {
