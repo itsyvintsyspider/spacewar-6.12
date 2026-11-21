@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# The tree's own Kbuild wants kalama's Bazel-generated config header
+# (kalamammdriversconf.h), which doesn't exist for lahaina. msm_ext_display
+# itself needs no board config beyond CONFIG_MSM_EXT_DISPLAY -- build the
+# one source file directly, same as Sengupta's build-vendor618.sh does for
+# this same problem on his own board.
+
+ccflags-y += -DCONFIG_MSM_EXT_DISPLAY=1 -I$(src)/include
+
+obj-m += msm_ext_display.o
+msm_ext_display-y := src/msm_ext_display.o
