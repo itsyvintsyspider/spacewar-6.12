@@ -3,12 +3,9 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Nothing board overlay, ported from the 5.4-era yupik-abra-common-overlay.dtsi.
- * The ramoops override is adapted for the 6.12 binding: the 5.4 tree set
- * "reg"/"console-size"/"pmsg-size" directly on a "ramoops"-compatible node
- * labeled &qcom; 6.12 splits that into a separate ramoops_mem reserved-memory
- * region, referenced via "memory-region" from a plain (unlabeled) node at
- * /soc/qcom_ramoops -- despite the name, it has no "label:" prefix in
- * yupik.dtsi, so it's addressed here by absolute path, not &qcom_ramoops.
+ * The ramoops override is adapted for 6.12: ramoops_mem becomes a static
+ * "ramoops" node (see the spacewar overlay) and the unused dynamic
+ * /soc/qcom_ramoops node is disabled.
  */
 
 /* Reserved for bootloader log memory according to xbl uefiplat.cfg */
@@ -20,12 +17,7 @@
 	};
 };
 
-/* Grow ramoops to fit both console and pmsg (5.4 era: 0x400000 total) */
-&ramoops_mem {
-	size = <0x0 0x400000>;
-};
-
+/* Dynamic qcom,ramoops driver is off; ramoops_mem is a static node (see spacewar overlay). */
 &{/soc/qcom_ramoops} {
-	console-size = <0x200000>;
-	pmsg-size = <0x200000>;
+	status = "disabled";
 };

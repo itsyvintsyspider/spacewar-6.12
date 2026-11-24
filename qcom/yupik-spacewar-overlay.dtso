@@ -134,9 +134,13 @@
 	qcom,board-id = <0x1000B 0>;
 };
 
-/* Fix ramoops to the real 5.4-era address so it matches stock pstore. */
+/* Static ramoops at the stock address/layout; non-cached so the tail survives a hang. */
 &ramoops_mem {
-	reg = <0x0 0xa9000000 0x0 0x400000>;
+	compatible = "ramoops";
+	reg = <0x0 0x83a00000 0x0 0x400000>;
+	console-size = <0x200000>;
+	pmsg-size = <0x200000>;
+	mem-type = <1>;
 };
 
 /*
@@ -327,6 +331,17 @@
 			aw210xx,imax = <1>;
 			aw210xx,brightness = <4095>;
 			aw210xx,max_brightness = <4095>;
+		};
+	};
+};
+
+/* First-stage init reads these to create the vbmeta/boot/dtbo by-name nodes. */
+&{/firmware} {
+	android {
+		compatible = "android,firmware";
+		vbmeta {
+			compatible = "android,vbmeta";
+			parts = "vbmeta,boot,system,vendor,dtbo";
 		};
 	};
 };
