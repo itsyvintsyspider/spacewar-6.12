@@ -26,7 +26,7 @@ pr_info("[NT_reserve_kernel_log] "fmt, ##arg)
 #define NT_rkl_err_print(fmt,arg...) \
 pr_err("[NT_reserve_kernel_log] "fmt, ##arg)
 
-#define RETRY_COUNT_FOR_GET_DEV_T 30
+#define RETRY_COUNT_FOR_GET_DEV_T 200
 #define PER_LOOP_MS 30
 
 #define NT_MAJOR 14
