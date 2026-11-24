@@ -134,13 +134,13 @@
 	qcom,board-id = <0x1000B 0>;
 };
 
-/* Static ramoops at the stock address/layout; non-cached so the tail survives a hang. */
+/* Static ramoops at the stock address/layout; write-combine (not cached, unaligned-safe). */
 &ramoops_mem {
 	compatible = "ramoops";
 	reg = <0x0 0x83a00000 0x0 0x400000>;
 	console-size = <0x200000>;
 	pmsg-size = <0x200000>;
-	mem-type = <1>;
+	mem-type = <0>;
 };
 
 /*
