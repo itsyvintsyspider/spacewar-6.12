@@ -12,8 +12,6 @@
  */
 
 #include <linux/module.h>
-#include <linux/kernel_read_file.h>
-#include <linux/vmalloc.h>
 #include <linux/kernel.h>
 #include <linux/i2c.h>
 #include <linux/gpio.h>
@@ -151,25 +149,10 @@ aw210xx_effect_cfg_t aw210xx_general_leds_effect[] = {
 int rt_flush_delay = 16666;
 int general_effect_end = 0;
 
-static int aw210xx_read_device_color(const char *filename, char *buf,  int length)
-{
-	void *data = NULL;
-	size_t size = 0;
-	int ret;
-
-	/* filp_open()/kernel_read() are protected exports on GKI 6.12. */
-	ret = kernel_read_file_from_path(filename, 0, &data, PAGE_SIZE,
-					 &size, READING_UNKNOWN);
-	if (ret < 0) {
-		AW_ERR("open %s err!\n", filename);
-		return 0;
-	}
-
-	memcpy(buf, data, min_t(size_t, size, length));
-	vfree(data);
-
-	return size;
-}
+/* "white" or "black"; set from userspace, GKI forbids reading persist from here. */
+static char device_color[8] = "black";
+module_param_string(device_color, device_color, sizeof(device_color), 0644);
+MODULE_PARM_DESC(device_color, "Device color: white or black");
 
 /******************************************************
  *
@@ -1916,9 +1899,7 @@ static ssize_t aw210xx_bootan_leds_effect_store(struct device *dev,
 	mutex_lock(&aw210xx->led_mutex);
 	if(val == 1)
 	{
-		char color[6] = {0};
-		aw210xx_read_device_color("/mnt/vendor/persist/color", color, 5);
-		if(strcmp(color, "white") ==0){
+		if(strcmp(device_color, "white") ==0){
 			AW_INFO("device color is white\n");
 			dev_is_black = 0;
 			aw210xx->glo_current = 160;
