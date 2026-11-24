@@ -12,6 +12,8 @@
  */
 
 #include <linux/module.h>
+#include <linux/kernel_read_file.h>
+#include <linux/vmalloc.h>
 #include <linux/kernel.h>
 #include <linux/i2c.h>
 #include <linux/gpio.h>
@@ -151,22 +153,22 @@ int general_effect_end = 0;
 
 static int aw210xx_read_device_color(const char *filename, char *buf,  int length)
 {
-	struct file *filep;
-	loff_t pos;
-	int ret = 0;
+	void *data = NULL;
+	size_t size = 0;
+	int ret;
 
-	filep= filp_open(filename, O_RDONLY, 0);
-	if(IS_ERR(filep))
-	{
-		AW_ERR("open %s err!\n",filename);
+	/* filp_open()/kernel_read() are protected exports on GKI 6.12. */
+	ret = kernel_read_file_from_path(filename, 0, &data, PAGE_SIZE,
+					 &size, READING_UNKNOWN);
+	if (ret < 0) {
+		AW_ERR("open %s err!\n", filename);
 		return 0;
 	}
 
-	pos = 0;
-	ret = kernel_read(filep, buf, length, &pos);
-	filp_close(filep, NULL);
+	memcpy(buf, data, min_t(size_t, size, length));
+	vfree(data);
 
-	return ret;
+	return size;
 }
 
 /******************************************************
