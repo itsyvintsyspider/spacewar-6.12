@@ -328,9 +328,10 @@ static int psci_sys_reset(struct notifier_block *nb, unsigned long action,
 		 * cookie = 0 (ignored by the implementation)
 		 */
 		invoke_psci_fn(PSCI_FN_NATIVE(1_1, SYSTEM_RESET2), 0, 0, 0);
-	} else {
-		invoke_psci_fn(PSCI_0_2_FN_SYSTEM_RESET, 0, 0, 0);
 	}
+
+	/* Also reached when SYSTEM_RESET2 is unsupported or rejected. */
+	invoke_psci_fn(PSCI_0_2_FN_SYSTEM_RESET, 0, 0, 0);
 
 	return NOTIFY_DONE;
 }
