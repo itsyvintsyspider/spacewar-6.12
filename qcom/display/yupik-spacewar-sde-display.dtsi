@@ -106,22 +106,24 @@
 	qcom,dynamic-mode-switch-enabled;
 	qcom,dynamic-mode-switch-type = "dynamic-resolution-switch-immediate";
 	qcom,dsi-dyn-clk-enable;
-	qcom,dsi-dyn-clk-list = <897000000>;
 
 	qcom,mdss-dsi-display-timings {
 		timing@0 {
+			qcom,dsi-dyn-clk-list = <897000000>;
 			qcom,mdss-dsi-panel-phy-timings = [00 1c 07 07 17 16 07
 					07 08 02 04 00 18 0c];
 			qcom,display-topology = <1 1 1>;
 			qcom,default-topology-index = <0>;
 		};
 		timing@1 {
+			qcom,dsi-dyn-clk-list = <897000000>;
 			qcom,mdss-dsi-panel-phy-timings = [00 1c 07 07 17 16 07
 					07 08 02 04 00 18 0c];
 			qcom,display-topology = <1 1 1>;
 			qcom,default-topology-index = <0>;
 		};
 		timing@2 {
+			qcom,dsi-dyn-clk-list = <897000000>;
 			qcom,mdss-dsi-panel-phy-timings = [00 1c 07 07 17 16 07
 					07 08 02 04 00 18 0c];
 			qcom,display-topology = <1 1 1>;
