@@ -150,7 +150,17 @@ make -C "$KP/common" O="$MPO" M="$VENDOR/datarmnet" \
 	KBUILD_EXTRA_SYMBOLS="$VENDOR/datarmnet-ext/mem/Module.symvers $VENDOR/dataipa/Module.symvers $EXTRA" \
 	-j"$(nproc)" modules
 
-echo "Built: $(find "$VENDOR/datarmnet-ext/mem" "$VENDOR/dataipa" "$VENDOR/datarmnet" -name '*.ko' | wc -l) mobile data stack modules"
+# datarmnet-ext modules ship a plain Kbuild; they only need their own uapi
+# include dir and rmnet_core's exported symbols.
+for m in shs perf offload perf_tether sch aps wlan; do
+	make -C "$KP/common" O="$MPO" M="$VENDOR/datarmnet-ext/$m" \
+		ARCH=arm64 LLVM=1 LLVM_IAS=1 CC=clang RMNET_CORE_INC_DIR="$VENDOR/datarmnet/core" \
+		EXTRA_CFLAGS="-I$VENDOR/datarmnet-ext/$m/include -I$VENDOR/datarmnet-ext/mem/include -I$VENDOR/datarmnet-ext/mem -I$VENDOR/datarmnet/core -I$VENDOR/dataipa/drivers/platform/msm/include -I$VENDOR/dataipa/drivers/platform/msm/include/uapi" \
+		KBUILD_EXTRA_SYMBOLS="$VENDOR/datarmnet-ext/mem/Module.symvers $VENDOR/dataipa/Module.symvers $VENDOR/datarmnet/Module.symvers $EXTRA" \
+		-j"$(nproc)" modules
+done
+
+echo "Built: $(find "$VENDOR/datarmnet-ext" "$VENDOR/dataipa" "$VENDOR/datarmnet" -name '*.ko' | wc -l) mobile data stack modules"
 
 # --- camera-kernel (Spectra ISP, camera.ko) ---
 # Kbuild.spacewar (this repo's own file, adapted from Sengupta's
