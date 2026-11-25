@@ -14,6 +14,7 @@
 #define CONFIG_IPA3_REGDUMP_IPA_5_5 1
 #define CONFIG_IPA_KERNEL_TESTS_MODULE 1
 #define CONFIG_NCM_IPA 1
+#define CONFIG_USB_F_GSI 1
 
 /*
  * qcom_scm_mem_protect_region_id() and qcom_scm_get_sec_dump_state() are
