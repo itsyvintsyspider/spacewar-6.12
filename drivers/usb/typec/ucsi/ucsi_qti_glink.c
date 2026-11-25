@@ -12,7 +12,9 @@
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
+#include <linux/power_supply.h>
 #include <linux/slab.h>
+#include <linux/usb/role.h>
 #include <linux/soc/qcom/qti_pmic_glink.h>
 
 #include "drivers/usb/typec/ucsi/ucsi.h"
@@ -38,6 +40,8 @@
 #define UCSI_LOG_BUF_SIZE		256
 #define NUM_LOG_PAGES			10
 #define UCSI_WAIT_TIME_MS		5000
+#define UCSI_INIT_RETRIES		3
+#define UCSI_INIT_CHECK_MS		1000
 
 #define ucsi_dbg(fmt, ...) \
 	do { \
@@ -91,8 +95,15 @@ struct ucsi_dev {
 	atomic_t			rx_valid;
 	struct work_struct		setup_work;
 	struct work_struct		unregister_work;
+	struct delayed_work		init_check_work;
+	unsigned int			init_retries;
 	atomic_t			state;
 	bool				remoteproc_timestamp_en;
+	struct notifier_block		psy_nb;
+	struct delayed_work		legacy_work;
+	struct typec_partner		*legacy_partner;
+	struct work_struct		notify_work;
+	unsigned long			notify_cons;
 };
 
 struct remoteproc_ts {
@@ -238,10 +249,143 @@ static int handle_ucsi_write_ack(struct ucsi_dev *udev, void *data, size_t len)
 	return 0;
 }
 
+/*
+ * A legacy USB-A to USB-C cable: the PMIC sees the attach, but the ADSP
+ * reports no connection over UCSI and never sends a connector change, so
+ * no partner exists and Android shows the port as disconnected (USB
+ * preferences greyed out, no MTP). When the charger has found a data port
+ * (SDP or CDP) and UCSI has no partner, register one; UCSI's own takes
+ * over at the next connector change. Called with state_lock held.
+ */
+static void ucsi_qti_drop_legacy_partner(struct ucsi_dev *udev)
+{
+	if (!udev->legacy_partner)
+		return;
+
+	typec_unregister_partner(udev->legacy_partner);
+	udev->legacy_partner = NULL;
+	/* The partner is gone, so is the controller's device role */
+	if (udev->ucsi && udev->ucsi->connector)
+		usb_role_switch_set_role(udev->ucsi->connector[0].usb_role_sw,
+					 USB_ROLE_NONE);
+}
+
+static bool ucsi_qti_usb_data_port(void)
+{
+	union power_supply_propval online = {0}, type = {0};
+	struct power_supply *psy;
+
+	psy = power_supply_get_by_name("usb");
+	if (!psy)
+		return false;
+
+	power_supply_get_property(psy, POWER_SUPPLY_PROP_ONLINE, &online);
+	power_supply_get_property(psy, POWER_SUPPLY_PROP_USB_TYPE, &type);
+	power_supply_put(psy);
+
+	return online.intval && (type.intval == POWER_SUPPLY_USB_TYPE_SDP ||
+				 type.intval == POWER_SUPPLY_USB_TYPE_CDP);
+}
+
+static void ucsi_qti_legacy_work(struct work_struct *work)
+{
+	struct ucsi_dev *udev = container_of(to_delayed_work(work),
+					     struct ucsi_dev, legacy_work);
+	bool data_port = ucsi_qti_usb_data_port();
+	struct typec_partner_desc desc = {
+		.accessory = TYPEC_ACCESSORY_NONE,
+	};
+	struct ucsi_connector *con;
+	struct typec_partner *partner;
+
+	mutex_lock(&udev->state_lock);
+	if (!udev->ucsi || !udev->ucsi->connector ||
+	    !udev->ucsi->connector[0].port) {
+		/* UCSI registers its ports asynchronously; try again. */
+		if (data_port && atomic_read(&udev->state) == PMIC_GLINK_STATE_UP)
+			schedule_delayed_work(&udev->legacy_work, HZ);
+		goto out;
+	}
+
+	con = &udev->ucsi->connector[0];
+	mutex_lock(&con->lock);
+	if (data_port && !con->partner && !udev->legacy_partner) {
+		partner = typec_register_partner(con->port, &desc);
+		if (IS_ERR(partner)) {
+			dev_err(udev->dev, "Failed to register legacy partner: %ld\n",
+				PTR_ERR(partner));
+		} else {
+			udev->legacy_partner = partner;
+			typec_set_pwr_opmode(con->port, TYPEC_PWR_MODE_USB);
+			typec_set_pwr_role(con->port, TYPEC_SINK);
+			typec_set_data_role(con->port, TYPEC_DEVICE);
+			/* typec doesn't drive the DWC3 role switch, UCSI does */
+			usb_role_switch_set_role(con->usb_role_sw, USB_ROLE_DEVICE);
+			dev_info(udev->dev, "legacy cable: registered USB partner\n");
+		}
+	} else if ((!data_port || con->partner) && udev->legacy_partner) {
+		ucsi_qti_drop_legacy_partner(udev);
+		dev_info(udev->dev, "legacy cable: partner removed\n");
+	}
+	mutex_unlock(&con->lock);
+out:
+	mutex_unlock(&udev->state_lock);
+}
+
+static int ucsi_qti_psy_notifier(struct notifier_block *nb, unsigned long evt,
+				 void *data)
+{
+	struct ucsi_dev *udev = container_of(nb, struct ucsi_dev, psy_nb);
+	struct power_supply *psy = data;
+
+	if (evt == PSY_EVENT_PROP_CHANGED && !strcmp(psy->desc->name, "usb"))
+		mod_delayed_work(system_wq, &udev->legacy_work, 0);
+
+	return NOTIFY_OK;
+}
+
+/*
+ * Connector changes are handled here, out of the pmic_glink RX worker. That
+ * worker also delivers the write and sync acks, so it must never wait on a
+ * lock that a UCSI command holds while it waits for one of those acks:
+ * ucsi_handle_connector_change() sends commands with con->lock held, and
+ * state_lock is held across ucsi_unregister().
+ */
+static void ucsi_qti_notify_work(struct work_struct *work)
+{
+	struct ucsi_dev *udev = container_of(work, struct ucsi_dev, notify_work);
+	unsigned long cons = xchg(&udev->notify_cons, 0);
+	struct ucsi_connector *con;
+	unsigned int con_num;
+
+	mutex_lock(&udev->state_lock);
+	if (atomic_read(&udev->state) == PMIC_GLINK_STATE_DOWN || !udev->ucsi ||
+	    !udev->ucsi->connector)
+		goto out;
+
+	for_each_set_bit(con_num, &cons, BITS_PER_LONG) {
+		if (!con_num || con_num > udev->ucsi->cap.num_connectors)
+			continue;
+
+		con = &udev->ucsi->connector[con_num - 1];
+		if (!con->ucsi)
+			continue;
+
+		/* A real connector change: UCSI owns the partner now. */
+		if (udev->legacy_partner) {
+			mutex_lock(&con->lock);
+			ucsi_qti_drop_legacy_partner(udev);
+			mutex_unlock(&con->lock);
+		}
+		ucsi_connector_change(udev->ucsi, con_num);
+	}
+out:
+	mutex_unlock(&udev->state_lock);
+}
+
 static int handle_ucsi_notify(struct ucsi_dev *udev, void *data, size_t len)
 {
 	struct ucsi_notify_ind_msg *msg_ptr;
-	struct ucsi_connector *con;
 	u32 cci;
 	u8 con_num;
 
@@ -249,19 +393,6 @@ static int handle_ucsi_notify(struct ucsi_dev *udev, void *data, size_t len)
 		pr_err("Incorrect received length %zu expected %zu\n", len,
 			sizeof(*msg_ptr));
 		return -EINVAL;
-	}
-
-	mutex_lock(&udev->state_lock);
-	if (atomic_read(&udev->state) == PMIC_GLINK_STATE_DOWN) {
-		pr_err("glink state is down\n");
-		mutex_unlock(&udev->state_lock);
-		return -ENOTCONN;
-	}
-
-	if (!udev->ucsi) {
-		pr_err("ucsi is NULL\n");
-		mutex_unlock(&udev->state_lock);
-		return -ENODEV;
 	}
 
 	msg_ptr = data;
@@ -275,16 +406,10 @@ static int handle_ucsi_notify(struct ucsi_dev *udev, void *data, size_t len)
 	}
 
 	con_num = UCSI_CCI_CONNECTOR(cci);
-	pr_debug("con_num: %u num_connectors: %u\n", con_num,
-		udev->ucsi->cap.num_connectors);
-
-	if (con_num && con_num <= udev->ucsi->cap.num_connectors &&
-		udev->ucsi->connector) {
-		con = &udev->ucsi->connector[con_num - 1];
-		if (con && con->ucsi)
-			ucsi_connector_change(udev->ucsi, con_num);
+	if (con_num && con_num < BITS_PER_LONG) {
+		set_bit(con_num, &udev->notify_cons);
+		schedule_work(&udev->notify_work);
 	}
-	mutex_unlock(&udev->state_lock);
 
 	return 0;
 }
@@ -536,7 +661,10 @@ static int ucsi_setup(struct ucsi_dev *udev)
 		return rc;
 	}
 
+	schedule_delayed_work(&udev->init_check_work,
+			      msecs_to_jiffies(UCSI_INIT_CHECK_MS));
 	mutex_unlock(&udev->state_lock);
+	schedule_delayed_work(&udev->legacy_work, HZ);
 	return 0;
 }
 
@@ -559,10 +687,54 @@ static void ucsi_qti_unregister_work(struct work_struct *work)
 	}
 
 	mutex_lock(&udev->state_lock);
+	ucsi_qti_drop_legacy_partner(udev);
 	ucsi_unregister(udev->ucsi);
 	ucsi_destroy(udev->ucsi);
 	udev->ucsi = NULL;
 	mutex_unlock(&udev->state_lock);
+}
+
+/* ucsi_register() only queues the PPM init, and a failed init leaves no port until the next boot */
+static void ucsi_qti_init_check_work(struct work_struct *work)
+{
+	struct ucsi_dev *udev = container_of(to_delayed_work(work),
+			struct ucsi_dev, init_check_work);
+	struct ucsi *ucsi = udev->ucsi;
+
+	if (!ucsi || atomic_read(&udev->state) != PMIC_GLINK_STATE_UP)
+		return;
+
+	if (delayed_work_pending(&ucsi->work) || work_busy(&ucsi->work.work)) {
+		schedule_delayed_work(&udev->init_check_work,
+				      msecs_to_jiffies(UCSI_INIT_CHECK_MS));
+		return;
+	}
+
+	if (ucsi->connector)
+		return;
+
+	if (udev->init_retries >= UCSI_INIT_RETRIES) {
+		dev_err(udev->dev, "PPM init failed after %u retries\n",
+			udev->init_retries);
+		return;
+	}
+
+	udev->init_retries++;
+	dev_warn(udev->dev, "PPM init failed, registering UCSI again (%u/%u)\n",
+		 udev->init_retries, UCSI_INIT_RETRIES);
+
+	mutex_lock(&udev->state_lock);
+	if (udev->ucsi != ucsi) {
+		mutex_unlock(&udev->state_lock);
+		return;
+	}
+	ucsi_qti_drop_legacy_partner(udev);
+	ucsi_unregister(ucsi);
+	ucsi_destroy(ucsi);
+	udev->ucsi = NULL;
+	mutex_unlock(&udev->state_lock);
+
+	ucsi_setup(udev);
 }
 
 static void ucsi_qti_state_cb(void *priv, enum pmic_glink_state state)
@@ -577,11 +749,13 @@ static void ucsi_qti_state_cb(void *priv, enum pmic_glink_state state)
 
 	switch (state) {
 	case PMIC_GLINK_STATE_DOWN:
+		cancel_delayed_work_sync(&udev->init_check_work);
 		cancel_work_sync(&udev->setup_work);
 		schedule_work(&udev->unregister_work);
 		break;
 	case PMIC_GLINK_STATE_UP:
 		cancel_work_sync(&udev->unregister_work);
+		udev->init_retries = 0;
 		schedule_work(&udev->setup_work);
 		break;
 	default:
@@ -603,6 +777,9 @@ static int ucsi_probe(struct platform_device *pdev)
 
 	INIT_WORK(&udev->setup_work, ucsi_qti_setup_work);
 	INIT_WORK(&udev->unregister_work, ucsi_qti_unregister_work);
+	INIT_DELAYED_WORK(&udev->init_check_work, ucsi_qti_init_check_work);
+	INIT_DELAYED_WORK(&udev->legacy_work, ucsi_qti_legacy_work);
+	INIT_WORK(&udev->notify_work, ucsi_qti_notify_work);
 	mutex_init(&udev->read_lock);
 	mutex_init(&udev->write_lock);
 	mutex_init(&udev->state_lock);
@@ -667,9 +844,14 @@ static int ucsi_probe(struct platform_device *pdev)
 		ipc_log_context_destroy(ucsi_ipc_log);
 		ucsi_ipc_log = NULL;
 		pmic_glink_unregister_client(udev->client);
+		return rc;
 	}
 
-	return rc;
+	udev->psy_nb.notifier_call = ucsi_qti_psy_notifier;
+	if (power_supply_reg_notifier(&udev->psy_nb))
+		dev_warn(dev, "No power supply notifier: legacy cables stay unseen\n");
+
+	return 0;
 }
 
 static void ucsi_remove(struct platform_device *pdev)
@@ -679,8 +861,13 @@ static void ucsi_remove(struct platform_device *pdev)
 	int rc;
 
 	debugfs_remove_recursive(udev->debugfs_dir);
+	power_supply_unreg_notifier(&udev->psy_nb);
+	cancel_delayed_work_sync(&udev->init_check_work);
+	cancel_delayed_work_sync(&udev->legacy_work);
+	cancel_work_sync(&udev->notify_work);
 	cancel_work_sync(&udev->setup_work);
-	if (!cancel_work_sync(&udev->unregister_work)) {
+	if (!cancel_work_sync(&udev->unregister_work) && udev->ucsi) {
+		ucsi_qti_drop_legacy_partner(udev);
 		ucsi_unregister(udev->ucsi);
 		ucsi_destroy(udev->ucsi);
 	}
