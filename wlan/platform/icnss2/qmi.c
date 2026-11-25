@@ -958,6 +958,12 @@ int icnss_qmi_get_dms_mac(struct icnss_priv *priv)
 	priv->dms.mac_valid = true;
 	memcpy(priv->dms.mac, resp.mac_address, QMI_WLFW_MAC_ADDR_SIZE_V01);
 	icnss_pr_info("Received DMS MAC: [%pM]\n", priv->dms.mac);
+	/* A multicast MAC can't be a station address; let qcacld generate one */
+	if (is_multicast_ether_addr(priv->dms.mac)) {
+		icnss_pr_err("DMS MAC is multicast, ignoring\n");
+		priv->dms.mac_valid = false;
+		goto out;
+	}
 	/*
 	 * Provision it for the host driver too: qcacld takes the platform MAC
 	 * first and programs it into the firmware. Without it the firmware
