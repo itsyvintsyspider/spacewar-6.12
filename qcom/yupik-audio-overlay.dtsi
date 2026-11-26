@@ -512,7 +512,19 @@
 	qcom,msm-mi2s-lines = <1>;
 };
 
+&audio_apr {
+	qcom,rproc-handle = <&adsp_pas>;
+};
+
+&soc {
+	adsp_notify: qcom,msm-adsp-notify {
+		compatible = "qcom,adsp-notify";
+		qcom,rproc-handle = <&adsp_pas>;
+	};
+};
+
 &adsp_loader {
+	qcom,rproc-handle = <&adsp_pas>;
 	nvmem-cells = <&adsp_variant>;
 	nvmem-cell-names = "adsp_variant";
 	adsp-fw-names = "adsp2";
