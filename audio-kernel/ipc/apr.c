@@ -1246,6 +1246,10 @@ static int apr_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	/* A failed notifier registration is dropped, so wait for adsp-notify. */
+	if (!audio_notifier_probe_status())
+		return -EPROBE_DEFER;
+
 	for (i = 0; i < APR_DEST_MAX; i++)
 		for (j = 0; j < APR_CLIENT_MAX; j++) {
 			mutex_init(&client[i][j].m_lock);
