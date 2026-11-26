@@ -362,8 +362,11 @@ static long cam_private_ioctl(struct file *file, void *fh,
 	case CAM_REQ_MGR_LINK: {
 		struct cam_req_mgr_ver_info ver_info;
 
-		if (k_ioctl->size != sizeof(ver_info.u.link_info_v1))
+		if (k_ioctl->size != sizeof(ver_info.u.link_info_v1)) {
+			CAM_ERR(CAM_CRM, "link v1 size %u != %zu",
+				k_ioctl->size, sizeof(ver_info.u.link_info_v1));
 			return -EINVAL;
+		}
 
 		if (copy_from_user(&ver_info.u.link_info_v1,
 			u64_to_user_ptr(k_ioctl->handle),
@@ -384,8 +387,11 @@ static long cam_private_ioctl(struct file *file, void *fh,
 	case CAM_REQ_MGR_LINK_V2: {
 		struct cam_req_mgr_ver_info ver_info;
 
-		if (k_ioctl->size != sizeof(ver_info.u.link_info_v2))
+		if (k_ioctl->size != sizeof(ver_info.u.link_info_v2)) {
+			CAM_ERR(CAM_CRM, "link v2 size %u != %zu",
+				k_ioctl->size, sizeof(ver_info.u.link_info_v2));
 			return -EINVAL;
+		}
 
 		if (copy_from_user(&ver_info.u.link_info_v2,
 			u64_to_user_ptr(k_ioctl->handle),
