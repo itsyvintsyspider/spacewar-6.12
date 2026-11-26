@@ -7,9 +7,9 @@ ccflags-y += -DCONFIG_SPECTRA_ISP=1
 ccflags-y += -DCONFIG_SPECTRA_ICP=1
 ccflags-y += -DCONFIG_SPECTRA_JPEG=1
 ccflags-y += -DCONFIG_SPECTRA_SENSOR=1
-# No LRME node here, unlike redwood's variant: phone1_defconfig has no
-# CONFIG_SPECTRA_LRME/CONFIG_MSM_CAM_LRME, so Nothing's camera HAL doesn't
-# acquire one -- this is Qualcomm's stock lahaina camera.ko module list.
+# cam_flash is only built when the PMIC flash LED driver (soc-repo leds-qti-flash) is reachable
+ccflags-y += -DCONFIG_LEDS_QTI_FLASH=1
+ccflags-y += -DCONFIG_SPECTRA_LRME=1
 
 ccflags-y += -D__NO_FORTIFY -fstrict-flex-arrays=0
 ccflags-y += -DCAMERA_COMPILE_BY=\"spacewar\" -DCAMERA_COMPILE_HOST=\"kbuild\" -DCAMERA_COMPILE_TIME=\"spacewar\"
@@ -149,6 +149,12 @@ camera-y := \
 	drivers/cam_sensor_module/cam_dp_bdg_lt7911d/cam_dp_bdg_lt7911d_dev.o \
 	drivers/cam_sensor_module/cam_hdmi_bdg_lt6911uxe/cam_hdmi_bdg_lt6911uxe_dev.o \
 	drivers/cam_sensor_module/cam_hdmi_bdg_lt6911uxe/cam_hdmi_bdg_lt6911uxe_core.o \
-	drivers/cam_sensor_module/hdmidp-in-uevent/msm_hdmidp_in_extcon.o
+	drivers/cam_sensor_module/hdmidp-in-uevent/msm_hdmidp_in_extcon.o \
+	drivers/cam_lrme/lrme_hw_mgr/lrme_hw/cam_lrme_hw_dev.o \
+	drivers/cam_lrme/lrme_hw_mgr/lrme_hw/cam_lrme_hw_core.o \
+	drivers/cam_lrme/lrme_hw_mgr/lrme_hw/cam_lrme_hw_soc.o \
+	drivers/cam_lrme/lrme_hw_mgr/cam_lrme_hw_mgr.o \
+	drivers/cam_lrme/cam_lrme_dev.o \
+	drivers/cam_lrme/cam_lrme_context.o
 
 obj-m += camera.o
