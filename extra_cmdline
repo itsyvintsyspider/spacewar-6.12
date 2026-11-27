@@ -1,0 +1,1 @@
+console=tty0 qcom_geni_serial.con_enabled=0
