@@ -388,6 +388,11 @@ int dsi_display_dev_remove(struct platform_device *pdev);
 int dsi_display_get_num_of_displays(struct drm_device *dev);
 
 /**
+ * get_main_display() - primary DSI display, or NULL if not probed
+ */
+struct dsi_display *get_main_display(void);
+
+/**
  * dsi_display_get_active_displays - returns pointers for active display devices
  * @dev: Pointer to DRM device
  * @display_array: Pointer to display array to be filled

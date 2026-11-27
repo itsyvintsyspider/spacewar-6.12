@@ -609,6 +609,11 @@ static inline bool sde_plane_enabled(const struct drm_plane_state *state)
  */
 int sde_plane_post_init(struct drm_plane *plane);
 
+/**
+ * sde_plane_is_fod_layer - true if userspace flagged this plane as the FOD pressed layer
+ */
+int sde_plane_is_fod_layer(const struct drm_plane_state *drm_state);
+
 /** sde_plane_is_lsr_enabled - Indicates if it is an CSC/Repro plane
  * @pstate: Pointer to sde plane
  * Returns true if it is an LSR plane, otherwise false.

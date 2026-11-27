@@ -44,6 +44,8 @@
 #include "sde_hw_ctl.h"
 #include "sde_hw_dspp.h"
 #include "sde_crtc.h"
+#include "dsi_display.h"
+#include "dsi_panel.h"
 #include "sde_plane.h"
 #include "sde_hw_util.h"
 #include "sde_hw_catalog.h"
@@ -2666,6 +2668,9 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 			for (i = 0; i < cstate->num_dim_layers; i++)
 				_sde_crtc_setup_dim_layer_cfg(crtc, sde_crtc,
 						mixer, &cstate->dim_layer[i]);
+			if (cstate->fod_pressed)
+				_sde_crtc_setup_dim_layer_cfg(crtc, sde_crtc,
+						mixer, &cstate->fod_dim_layer);
 			CRTC_DIRTY_OP_LOCK(sde_crtc, clear_bit,	SDE_CRTC_DIRTY_DIM_LAYERS,
 					cstate->dirty);
 		}
@@ -7772,6 +7777,80 @@ static int _sde_crtc_check_zpos(struct drm_crtc_state *state,
 	return rc;
 }
 
+static void sde_crtc_fod_atomic_check(struct drm_crtc *crtc,
+		struct sde_crtc_state *cstate, struct plane_state *pstates, int cnt)
+{
+	struct drm_display_mode *mode = &cstate->base.adjusted_mode;
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+	struct sde_hw_dim_layer layer;
+	struct dsi_display *display;
+	struct sde_kms *kms;
+	int i, stage, top = 0;
+	int fod_idx = -1;
+	bool active = false;
+	u32 alpha;
+
+	memset(&layer, 0, sizeof(layer));
+
+	kms = _sde_crtc_get_kms(crtc);
+	display = get_main_display();
+	if (!kms || !kms->catalog || !display || !display->panel)
+		goto done;
+
+	for (i = 0; i < cnt; i++) {
+		if (pstates[i].sde_pstate->stage > top)
+			top = pstates[i].sde_pstate->stage;
+		if (fod_idx < 0 && sde_plane_is_fod_layer(pstates[i].drm_pstate))
+			fod_idx = i;
+	}
+
+	if (fod_idx < 0 || display->panel->power_mode != SDE_MODE_DPMS_ON)
+		goto done;
+
+	alpha = dsi_panel_get_fod_dim_alpha(display->panel);
+	if (!alpha)
+		goto done;
+
+	/* the dim layer takes one extra blend stage */
+	if (top + 1 >= SDE_STAGE_MAX ||
+		top + 1 > kms->catalog->mixer[0].sblk->maxblendstages) {
+		SDE_DEBUG("no free blend stage for fod dim layer\n");
+		goto done;
+	}
+
+	/* dim layer sits just below the FOD plane; it and everything above move up */
+	stage = pstates[fod_idx].sde_pstate->stage;
+
+	layer.flags = SDE_DRM_DIM_LAYER_INCLUSIVE;
+	layer.stage = stage;
+	layer.rect.x = 0;
+	layer.rect.y = 0;
+	layer.rect.w = mode->hdisplay;
+	layer.rect.h = mode->vdisplay;
+	layer.color_fill.color_3 = alpha;
+	active = true;
+
+	for (i = 0; i < cnt; i++)
+		if (pstates[i].sde_pstate->stage >= stage) {
+			pstates[i].sde_pstate->stage++;
+			pstates[i].stage++;
+		}
+
+done:
+	if (active != cstate->fod_pressed ||
+		memcmp(&layer, &cstate->fod_dim_layer, sizeof(layer)))
+		CRTC_DIRTY_OP_LOCK(sde_crtc, set_bit, SDE_CRTC_DIRTY_DIM_LAYERS,
+				cstate->dirty);
+
+	cstate->fod_pressed = active;
+	cstate->fod_dim_layer = layer;
+}
+
+bool sde_crtc_is_fod_enabled(struct drm_crtc_state *state)
+{
+	return to_sde_crtc_state(state)->fod_pressed;
+}
+
 static int _sde_crtc_atomic_check_pstates(struct drm_crtc *crtc,
 		struct drm_crtc_state *state,
 		struct plane_state *pstates,
@@ -7805,6 +7884,8 @@ static int _sde_crtc_atomic_check_pstates(struct drm_crtc *crtc,
 	rc = _sde_crtc_check_zpos(state, sde_crtc, pstates, cstate, mode, cnt);
 	if (rc)
 		return rc;
+
+	sde_crtc_fod_atomic_check(crtc, cstate, pstates, cnt);
 
 	rc = _sde_crtc_check_secure_state(crtc, state, pstates, cnt);
 	if (rc)

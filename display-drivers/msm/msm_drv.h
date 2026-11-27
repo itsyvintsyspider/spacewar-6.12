@@ -190,6 +190,8 @@ enum msm_mdp_plane_property {
 	PLANE_PROP_REPROJ_LAYER_GAMMA,
 	PLANE_PROP_DISPARITY_PHASE,
 
+	PLANE_PROP_FOD,
+
 	/* total # of properties */
 	PLANE_PROP_COUNT
 };

@@ -3469,6 +3469,7 @@ static void _sde_plane_map_prop_to_dirty_bits(void)
 	plane_prop_array[PLANE_PROP_V_DECIMATE] =
 	plane_prop_array[PLANE_PROP_SRC_CONFIG] =
 	plane_prop_array[PLANE_PROP_ZPOS] =
+	plane_prop_array[PLANE_PROP_FOD] =
 	plane_prop_array[PLANE_PROP_EXCL_RECT_V1] =
 	plane_prop_array[PLANE_PROP_UBWC_STATS_ROI] =
 	plane_prop_array[PLANE_PROP_CAC_TYPE] =
@@ -4849,8 +4850,12 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 		zpos_def = drm_plane_index(plane) + 1;
 	}
 
+	/* zpos also carries FOD_PRESSED_LAYER_ZORDER, so the range is open */
 	msm_property_install_range(&psde->property_info, "zpos",
-		0x0, 0, zpos_max, zpos_def, PLANE_PROP_ZPOS);
+		0x0, 0, INT_MAX, zpos_def, PLANE_PROP_ZPOS);
+
+	msm_property_install_range(&psde->property_info, "fod",
+		0x0, 0, INT_MAX, 0, PLANE_PROP_FOD);
 
 	if (test_bit(SDE_FEATURE_10_BITS_COMPONENTS, catalog->features)) {
 		msm_property_install_range(&psde->property_info, "alpha", 0x0, 0, 65535, 65535,
@@ -5466,6 +5471,18 @@ end:
 	memcpy(&pstate->ubwc_stats_roi, &roi, sizeof(struct sde_drm_ubwc_stats_roi));
 }
 
+int sde_plane_is_fod_layer(const struct drm_plane_state *drm_state)
+{
+	struct sde_plane_state *pstate;
+
+	if (!drm_state)
+		return 0;
+
+	pstate = to_sde_plane_state(drm_state);
+
+	return sde_plane_get_property(pstate, PLANE_PROP_FOD);
+}
+
 static int sde_plane_atomic_set_property(struct drm_plane *plane,
 		struct drm_plane_state *state, struct drm_property *property,
 		uint64_t val)
@@ -5482,6 +5499,16 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 		SDE_ERROR_PLANE(psde, "invalid state\n");
 	} else {
 		pstate = to_sde_plane_state(state);
+		if (property == psde->property_info.property_array[PLANE_PROP_ZPOS]) {
+			/* split the FOD flag out of zpos */
+			ret = msm_property_atomic_set(&psde->property_info,
+					&pstate->property_state,
+					psde->property_info.property_array[PLANE_PROP_FOD],
+					!!(val & FOD_PRESSED_LAYER_ZORDER));
+			if (ret)
+				SDE_ERROR("failed to set fod prop\n");
+			val &= ~FOD_PRESSED_LAYER_ZORDER;
+		}
 		ret = msm_property_atomic_set(&psde->property_info,
 				&pstate->property_state, property, val);
 		if (!ret) {

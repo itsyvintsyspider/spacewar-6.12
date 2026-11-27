@@ -7152,6 +7152,11 @@ end:
 #endif
 }
 
+struct dsi_display *get_main_display(void)
+{
+	return boot_displays[0].disp;
+}
+
 int dsi_display_get_num_of_displays(struct drm_device *dev)
 {
 	int i, count = 0;

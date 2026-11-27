@@ -383,6 +383,10 @@ skip_incremental_update:
 	return rc;
 }
 
+/* FOD HBM: finger down on the UDFPS area, or forced via hbm_mode */
+static int finger_hbm_flag;
+static int hbm_mode_flag;
+
 static int sde_backlight_device_update_status(struct backlight_device *bd)
 {
 	int brightness;
@@ -418,6 +422,9 @@ static int sde_backlight_device_update_status(struct backlight_device *bd)
 	/* map UI brightness into driver backlight level with rounding */
 	bl_lvl = mult_frac(brightness, display->panel->bl_config.bl_max_level,
 			display->panel->bl_config.brightness_max_level);
+
+	if (brightness && (finger_hbm_flag || hbm_mode_flag))
+		bl_lvl = display->panel->bl_config.bl_hbm_level;
 
 	if (!bl_lvl && brightness)
 		bl_lvl = 1;
@@ -1614,6 +1621,53 @@ static int sde_connector_check_update_vhm_cmd(struct drm_connector *connector)
 	return rc;
 }
 
+static int _sde_connector_update_finger_hbm_status(
+				struct drm_connector *connector)
+{
+	bool status;
+	struct sde_connector *c_conn;
+	struct dsi_display *display;
+
+	c_conn = to_sde_connector(connector);
+	display = _sde_connector_get_display(c_conn);
+	if (!display || !display->panel || !connector->state ||
+			!connector->state->crtc)
+		return -EINVAL;
+
+	status = sde_crtc_is_fod_enabled(connector->state->crtc->state);
+	if (status == dsi_panel_get_fod_ui(display->panel))
+		return 0;
+
+	if (display->panel->power_mode == SDE_MODE_DPMS_OFF)
+		return 0;
+
+	finger_hbm_flag = status;
+	if (finger_hbm_flag) {
+		if (c_conn->lp_mode == SDE_MODE_DPMS_LP1 ||
+				c_conn->lp_mode == SDE_MODE_DPMS_LP2) {
+			mutex_lock(&c_conn->lock);
+			c_conn->ops.set_power(connector, SDE_MODE_DPMS_ON, display);
+			mutex_unlock(&c_conn->lock);
+			c_conn->last_panel_power_mode = SDE_MODE_DPMS_ON;
+		}
+		sde_backlight_device_update_status(c_conn->bl_device);
+		sde_encoder_wait_for_event(c_conn->encoder, MSM_ENC_VBLANK);
+	} else {
+		sde_backlight_device_update_status(c_conn->bl_device);
+		sde_encoder_wait_for_event(c_conn->encoder, MSM_ENC_VBLANK);
+		if (c_conn->lp_mode == SDE_MODE_DPMS_LP1 ||
+				c_conn->lp_mode == SDE_MODE_DPMS_LP2) {
+			mutex_lock(&c_conn->lock);
+			c_conn->ops.set_power(connector, c_conn->lp_mode, display);
+			mutex_unlock(&c_conn->lock);
+			c_conn->last_panel_power_mode = c_conn->lp_mode;
+		}
+	}
+
+	dsi_panel_set_fod_ui(display->panel, finger_hbm_flag);
+	return 0;
+}
+
 int sde_connector_pre_kickoff(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn;
@@ -1656,6 +1710,10 @@ int sde_connector_pre_kickoff(struct drm_connector *connector)
 		SDE_EVT32(connector->base.id, SDE_EVTLOG_ERROR);
 		goto end;
 	}
+
+	if (c_conn->connector_type == DRM_MODE_CONNECTOR_DSI &&
+			_sde_connector_update_finger_hbm_status(connector))
+		SDE_DEBUG("update finger hbm status failed\n");
 
 	/* Send VHM commands post BRIGHTNESS updates */
 	if (c_conn->vrr_caps.video_psr_support) {
@@ -5020,12 +5078,43 @@ static ssize_t skip_panel_power_show(struct device *device,
 	return scnprintf(buf, PAGE_SIZE, "%d\n", sde_conn->skip_panel_power);
 }
 
+static ssize_t hbm_mode_show(struct device *device,
+	struct device_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", hbm_mode_flag);
+}
+
+static ssize_t hbm_mode_store(struct device *device,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct drm_connector *connector = dev_get_drvdata(device);
+	struct sde_connector *c_conn;
+	unsigned long val;
+	int rc;
+
+	if (!connector)
+		return -EINVAL;
+
+	rc = kstrtoul(buf, 0, &val);
+	if (rc)
+		return rc;
+
+	c_conn = to_sde_connector(connector);
+	hbm_mode_flag = !!val;
+	if (c_conn->bl_device)
+		sde_backlight_device_update_status(c_conn->bl_device);
+
+	return count;
+}
+
+static DEVICE_ATTR_RW(hbm_mode);
 static DEVICE_ATTR_RO(panel_power_state);
 static DEVICE_ATTR_RW(twm_enable);
 static DEVICE_ATTR_RW(offload_enable);
 static DEVICE_ATTR_RW(skip_panel_power);
 
 static struct attribute *sde_connector_dev_attrs[] = {
+	&dev_attr_hbm_mode.attr,
 	&dev_attr_panel_power_state.attr,
 	&dev_attr_twm_enable.attr,
 	&dev_attr_offload_enable.attr,

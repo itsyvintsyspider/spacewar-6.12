@@ -139,12 +139,20 @@ struct dsi_panel_phy_props {
 	enum dsi_panel_rotation rotation;
 };
 
+#define HBM_BL_LEVEL 4094
+#define BRIGHTNESS_ALPHA_PAIR_LEN 2
+struct brightness_alpha_pair {
+	u16 brightness;
+	u8 alpha;
+};
+
 struct dsi_backlight_config {
 	enum dsi_backlight_type type;
 	enum bl_update_flag bl_update;
 
 	u32 bl_min_level;
 	u32 bl_max_level;
+	u32 bl_hbm_level;
 	u32 brightness_max_level;
 	/* current brightness value */
 	u32 brightness;
@@ -395,6 +403,11 @@ struct dsi_panel {
 	struct dsi_regulator_info power_info;
 	struct dsi_regulator_info post_power_info;
 	struct dsi_backlight_config bl_config;
+
+	struct brightness_alpha_pair *fod_dim_lut;
+	unsigned int fod_dim_lut_len;
+	u8 fod_dim_alpha;
+	bool fod_ui;
 	struct dsi_panel_reset_config reset_config;
 	struct dsi_pinctrl_info pinctrl;
 	struct drm_panel_hdr_properties hdr_props;
@@ -546,6 +559,10 @@ int dsi_panel_unprepare(struct dsi_panel *panel);
 int dsi_panel_post_unprepare(struct dsi_panel *panel);
 
 int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl);
+
+bool dsi_panel_get_fod_ui(struct dsi_panel *panel);
+void dsi_panel_set_fod_ui(struct dsi_panel *panel, bool status);
+u8 dsi_panel_get_fod_dim_alpha(struct dsi_panel *panel);
 
 int dsi_panel_update_pps(struct dsi_panel *panel);
 
