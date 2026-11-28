@@ -749,7 +749,12 @@ int msm_audio_ion_import_cma(void  **handle, int fd,
 		}
 	}
 
-	msm_audio_dma_buf_map(*handle, paddr, (dma_addr_t *) plen, &bufsz);
+	/* dma-buf record, not the coherent one: free then detaches instead of dma_free_coherent */
+	rc = msm_audio_ion_dma_buf_map((struct dma_buf *)*handle, paddr, plen, true);
+	if (rc) {
+		pr_err("%s: failed to map CMA buf, rc = %d\n", __func__, rc);
+		goto err_ion_flag;
+	}
 
 	return 0;
 

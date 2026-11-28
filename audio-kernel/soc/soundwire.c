@@ -987,9 +987,9 @@ int swr_register_master(struct swr_master *master)
 	id = of_alias_get_id(master->dev.of_node, "swr");
 
 	if (id >= 0)
-		master->bus_num = id;
-	id = idr_alloc(&master_idr, master, master->bus_num,
-				master->bus_num + 1, GFP_KERNEL);
+		id = idr_alloc(&master_idr, master, id, id + 1, GFP_KERNEL);
+	else	/* no alias in the DT: take the next free bus number */
+		id = idr_alloc(&master_idr, master, 0, 0, GFP_KERNEL);
 	mutex_unlock(&swr_lock);
 	if (id < 0)
 		return id;
