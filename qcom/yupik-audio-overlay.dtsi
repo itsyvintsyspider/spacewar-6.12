@@ -271,6 +271,13 @@
 			<3 DMIC6 0x4 0 SWRM_TX3_CH3>,
 			<3 DMIC7 0x8 0 SWRM_TX3_CH4>;
 
+		/* Port 0 on lane 1 (stock); port 1 offset 1 so it fits the ADC_LP 4-slot interval */
+		qcom,swr-tx-port-params =
+			<OFFSET1_VAL0 LANE1>, <OFFSET1_VAL1 LANE0>, <OFFSET1_VAL1 LANE0>, <OFFSET1_VAL1 LANE0>,
+			<OFFSET1_VAL0 LANE1>, <OFFSET1_VAL1 LANE0>, <OFFSET1_VAL1 LANE0>, <OFFSET1_VAL1 LANE0>,
+			<OFFSET1_VAL1 LANE0>, <OFFSET1_VAL1 LANE0>, <OFFSET1_VAL1 LANE0>, <OFFSET1_VAL1 LANE0>,
+			<OFFSET1_VAL1 LANE0>, <OFFSET1_VAL1 LANE0>, <OFFSET1_VAL1 LANE0>, <OFFSET1_VAL1 LANE0>;
+
 		qcom,wcd-rst-gpio-node = <&wcd93xx_rst_gpio>;
 		qcom,rx-slave = <&wcd938x_rx_slave>;
 		qcom,tx-slave = <&wcd938x_tx_slave>;
@@ -309,6 +316,8 @@
 	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>, <1>;
 	qcom,tdm-max-slots = <8>;
 	qcom,wcd-disabled = <0>;
+	/* AUXPCM .7-.12 have no DT device here, the card never completes with them */
+	qcom,auxpcm-audio-intf = <0>;
 	qcom,audio-routing =
 		"AMIC1", "Analog Mic1",
 		"Analog Mic1", "MIC BIAS1",
