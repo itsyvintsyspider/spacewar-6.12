@@ -91,6 +91,9 @@
 #include "yupik-audio-overlay.dtsi"
 #include "nothing-spacewar-audio-overlay.dtsi"
 
+/* Venus video decoder/encoder (msm_vidc) */
+#include "yupik-spacewar-video.dtsi"
+
 /* External-display (USB-C DP/HDMI) audio passthrough codec, missing from stock 6.12. */
 &soc {
 	ext_disp: qcom,msm-ext-disp {
@@ -361,141 +364,13 @@
 	};
 };
 
-/* 6.12 fastrpc binds to a glink-edge child; stream IDs are from the 5.4 yupik DT. */
-&remoteproc_adsp_glink {
-	fastrpc {
-		compatible = "qcom,fastrpc";
-		qcom,glink-channels = "fastrpcglink-apps-dsp";
-		label = "adsp";
-		qcom,vmids = <22 37>;
-		qcom,fastrpc-gids = <2908>;
-		qcom,rpc-latency-us = <235>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		compute-cb@3 {
-			compatible = "qcom,fastrpc-compute-cb";
-			reg = <3>;
-			iommus = <&apps_smmu 0x1803 0x0000>;
-		};
-
-		compute-cb@4 {
-			compatible = "qcom,fastrpc-compute-cb";
-			reg = <4>;
-			iommus = <&apps_smmu 0x1804 0x0000>;
-		};
-
-		compute-cb@5 {
-			compatible = "qcom,fastrpc-compute-cb";
-			reg = <5>;
-			iommus = <&apps_smmu 0x1805 0x0000>;
-		};
-	};
+/* yupik.dtsi spells CPU_PD2's property "Power-domains", so cpu2 never joined the cluster domain. */
+&CPU_PD2 {
+	power-domains = <&CLUSTER_PD>;
 };
 
-&remoteproc_cdsp_glink {
-	fastrpc {
-		compatible = "qcom,fastrpc";
-		qcom,glink-channels = "fastrpcglink-apps-dsp";
-		label = "cdsp";
-		qcom,fastrpc-gids = <2908>;
-		qcom,rpc-latency-us = <235>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		compute-cb@1 {
-			compatible = "qcom,fastrpc-compute-cb";
-			reg = <1>;
-			iommus = <&apps_smmu 0x11A1 0x0420>,
-				 <&apps_smmu 0x1181 0x0420>;
-		};
-
-		compute-cb@2 {
-			compatible = "qcom,fastrpc-compute-cb";
-			reg = <2>;
-			iommus = <&apps_smmu 0x11A2 0x0420>,
-				 <&apps_smmu 0x1182 0x0420>;
-		};
-
-		compute-cb@3 {
-			compatible = "qcom,fastrpc-compute-cb";
-			reg = <3>;
-			iommus = <&apps_smmu 0x11A3 0x0420>,
-				 <&apps_smmu 0x1183 0x0420>;
-		};
-
-		compute-cb@4 {
-			compatible = "qcom,fastrpc-compute-cb";
-			reg = <4>;
-			iommus = <&apps_smmu 0x11A4 0x0420>,
-				 <&apps_smmu 0x1184 0x0420>;
-		};
-
-		compute-cb@5 {
-			compatible = "qcom,fastrpc-compute-cb";
-			reg = <5>;
-			iommus = <&apps_smmu 0x11A5 0x0420>,
-				 <&apps_smmu 0x1185 0x0420>;
-		};
-
-		compute-cb@6 {
-			compatible = "qcom,fastrpc-compute-cb";
-			reg = <6>;
-			iommus = <&apps_smmu 0x11A6 0x0420>,
-				 <&apps_smmu 0x1186 0x0420>;
-		};
-
-		compute-cb@7 {
-			compatible = "qcom,fastrpc-compute-cb";
-			reg = <7>;
-			iommus = <&apps_smmu 0x11A7 0x0420>,
-				 <&apps_smmu 0x1187 0x0420>;
-		};
-
-		compute-cb@8 {
-			compatible = "qcom,fastrpc-compute-cb";
-			reg = <8>;
-			iommus = <&apps_smmu 0x11A8 0x0420>,
-				 <&apps_smmu 0x1188 0x0420>;
-		};
-
-		compute-cb@9 {
-			compatible = "qcom,fastrpc-compute-cb";
-			reg = <9>;
-			qcom,secure-context-bank;
-			iommus = <&apps_smmu 0x11A9 0x0420>,
-				 <&apps_smmu 0x1189 0x0420>;
-		};
-
-		compute-cb@11 {
-			compatible = "qcom,fastrpc-compute-cb";
-			reg = <11>;
-			iommus = <&apps_smmu 0x11AB 0x0420>,
-				 <&apps_smmu 0x118B 0x0420>;
-		};
-
-		compute-cb@12 {
-			compatible = "qcom,fastrpc-compute-cb";
-			reg = <12>;
-			iommus = <&apps_smmu 0x11AC 0x0420>,
-				 <&apps_smmu 0x118C 0x0420>;
-		};
-
-		compute-cb@13 {
-			compatible = "qcom,fastrpc-compute-cb";
-			reg = <13>;
-			iommus = <&apps_smmu 0x11AD 0x0420>,
-				 <&apps_smmu 0x118D 0x0420>;
-		};
-
-		compute-cb@14 {
-			compatible = "qcom,fastrpc-compute-cb";
-			reg = <14>;
-			iommus = <&apps_smmu 0x11AE 0x0420>,
-				 <&apps_smmu 0x118E 0x0420>;
-		};
-	};
-};
+/* Legacy FastRPC: the vendor libadsprpc needs the 5.4 ioctl ABI (frpc-adsprpc). */
+#include "yupik-spacewar-fastrpc.dtsi"
 
 /* WCN6750 Wi-Fi: 6.12 yupik.dtsi lacks the icnss2 node (ported from 5.4). */
 &soc {
@@ -772,4 +647,41 @@
 		};
 
 	};
+};
+
+&soc {
+	bluetooth: bt_wcn6750 {
+		compatible = "qcom,wcn6750-bt";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_sleep>;
+		qcom,bt-reset-gpios = <&tlmm 85 0>;
+		qcom,bt-sw-ctrl-gpios = <&tlmm 86 0>;
+		qcom,wl-reset-gpios = <&tlmm 84 0>;
+
+		qcom,bt-vdd-io-supply = <&L19B>;
+		qcom,bt-vdd-aon-supply = <&S7B>;
+		qcom,bt-vdd-dig-supply = <&S7B>;
+		qcom,bt-vdd-rfacmn-supply = <&S7B>;
+		qcom,bt-vdd-rfa-0p8-supply = <&S7B>;
+		qcom,bt-vdd-rfa1-supply = <&S1B>;
+		qcom,bt-vdd-rfa2-supply = <&S8B>;
+		qcom,bt-vdd-ipa-2p2-supply = <&S1C>;
+		qcom,bt-vdd-asd-supply = <&L11C>;
+
+		qcom,bt-vdd-io-config = <1800000 2000000 0 1>;
+		qcom,bt-vdd-aon-config = <824000 1120000 0 1>;
+		qcom,bt-vdd-dig-config = <824000 1120000 0 1>;
+		qcom,bt-vdd-rfacmn-config = <824000 1120000 0 1>;
+		qcom,bt-vdd-rfa-0p8-config = <824000 1120000 0 1>;
+		qcom,bt-vdd-rfa1-config = <1872000 2040000 0 1>;
+		qcom,bt-vdd-rfa2-config = <1256000 1500000 0 1>;
+		qcom,bt-vdd-ipa-2p2-config = <2200000 2210000 0 1>;
+		qcom,bt-vdd-asd-config = <2800000 3544000 0 1>;
+	};
+};
+
+&battery_charger {
+	/* FCC steps from Nothing's stock yupik-qrd */
+	qcom,thermal-mitigation = <6500000 5000000 4000000 3000000 2500000
+				   2000000 0>;
 };
