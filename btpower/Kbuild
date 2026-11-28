@@ -1,0 +1,2 @@
+obj-m += btpower.o
+ccflags-y += $(SOCINCLUDE)
